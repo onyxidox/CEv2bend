@@ -12,7 +12,10 @@ const extraClassRoutes = require("./routes/extraclass.routes");
 
 const app = express();
 
+
 app.use(cors());
+
+
 app.use(express.json());
 
 app.use(async (req, res, next) => {
