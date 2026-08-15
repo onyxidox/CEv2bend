@@ -8,7 +8,6 @@ const taskRoutes = require("./routes/task.routes");
 const dbImport = require('./db');
 const connectDB = dbImport.connectDB || dbImport; 
 const syncRoutes = require('./routes/sync');
-const extraClassRoutes = require("./routes/extraclass.routes");
 
 const app = express();
 
@@ -39,9 +38,6 @@ app.use('/api/timetable', syncRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/announcements", announcementRoutes); 
 app.use("/api/tasks", taskRoutes);
-app.use("/api/extraclass", extraClassRoutes);
-
-
 
 try {
   app.use('/api/auth', require('./routes/auth.routes'));

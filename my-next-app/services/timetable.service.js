@@ -5,14 +5,14 @@ const TARGET_SECTIONS = [
     "BSCE-2B"
 ];
 
-const SHEET_ID = "1sivXTIf9JvaqP2k6B7-468SyZXTcOAvKyyVW4HJRxeQ";
+const SHEET_ID = "1MP4MPKE-oNkbmo_GWBHtXIa0mLDW_dxlmhM4oXi55eQ";
 
 const SHEETS = [
-  { day: "MONDAY", gid: "212334121" },
-  { day: "TUESDAY", gid: "194541049" },
-  { day: "WEDNESDAY", gid: "1763686045" },
-  { day: "THURSDAY", gid: "1603164899" },
-  { day: "FRIDAY", gid: "1836512926" },
+  { day: "MONDAY", gid: "0" },
+  { day: "TUESDAY", gid: "1998734114" },
+  { day: "WEDNESDAY", gid: "1268991958" },
+  { day: "THURSDAY", gid: "1486082022" },
+  { day: "FRIDAY", gid: "188030115" },
 ];
 
 async function fetchAllDays() {
