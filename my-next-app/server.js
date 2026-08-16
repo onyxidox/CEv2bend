@@ -38,6 +38,7 @@ app.use('/api/timetable', syncRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/announcements", announcementRoutes); 
 app.use("/api/tasks", taskRoutes);
+app.use("/api/extraclass", require("./routes/extraclass.routes"));
 
 try {
   app.use('/api/auth', require('./routes/auth.routes'));
