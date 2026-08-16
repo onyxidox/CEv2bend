@@ -6,7 +6,7 @@ const { syncSection } = require("../services/schedule.sync");
 
 router.get("/", async (req, res) => {
   try {
-    const section = req.query.section || (req.user && req.user.section) || "BSCE-2A";
+    const section = req.query.section || (req.user && req.user.section) || "BCE-3A";
 
     // Fetch data
     const classes = await ClassSession.find({ section: { $regex: section, $options: "i" } })

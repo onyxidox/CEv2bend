@@ -2,12 +2,12 @@ const express = require("express");
 const router = express.Router();
 const ExtraClass = require("../models/ExtraClass");
 
-// GET /api/extraclass?section=BSCE-2A
+// GET /api/extraclass?section=BCE-3A
 // Returns extra classes for a section that are today or in the future,
 // so past extra classes don't keep popping up.
 router.get("/", async (req, res) => {
   try {
-    const section = req.query.section || (req.user && req.user.section) || "BSCE-2A";
+    const section = req.query.section || (req.user && req.user.section) || "BCE-3A";
 
     // Start of today, so a class scheduled for "today" still shows even if
     // some of today's hours have already passed.

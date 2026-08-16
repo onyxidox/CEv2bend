@@ -41,11 +41,11 @@ router.post("/login", async (req, res) => {
       const updates = {};
       let needsUpdate = false;
 
-      if (section && ["BSCE-2A", "BSCE-2B"].includes(section) && user.section !== section) {
-        updates.section = section;
-        needsUpdate = true;
-        console.log(`🔄 Updating section for ${user.email}: ${user.section} -> ${section}`);
-      }
+      if (section && ["BCE-1A", "BCE-1B", "BCE-2A", "BCE-2B", "BCE-3A", "BCE-3B"].includes(section) && user.section !== section) {
+  updates.section = section;
+  needsUpdate = true;
+  console.log(`🔄 Updating section for ${user.email}: ${user.section} -> ${section}`);
+}
 
       if (name && user.name !== name) {
         updates.name = name;
