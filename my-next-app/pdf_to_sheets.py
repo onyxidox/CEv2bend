@@ -166,13 +166,21 @@ def extract_page(plumber_page, fitz_page, page_label, warnings):
             ghosts += 1
             continue
 
-        target = None
+        target_cell = None
         for ci, cell in enumerate(rows[current_row].cells):
             if ci > 0 and cell and cell[0] <= xc <= cell[2]:
-                target = ci
+                target_cell = cell
                 break
-        if target is None:
+        if target_cell is None:
             warnings.append("%s: no column for entry %r (x=%.0f)" % (page_label, sp["text"][:40], xc))
+            continue
+
+        # A merged cell (e.g. a 3-hour lab) is one wide box covering several
+        # base columns -- book the entry into EVERY time slot it occupies.
+        covered = [ci for ci, hc in enumerate(rows[0].cells)
+                   if ci > 0 and hc and hc[0] + 2 < target_cell[2] and hc[2] - 2 > target_cell[0]]
+        if not covered:
+            warnings.append("%s: cell covers no time-slot column: %r" % (page_label, sp["text"][:40]))
             continue
 
         band = bands[current_row]
@@ -183,7 +191,8 @@ def extract_page(plumber_page, fitz_page, page_label, warnings):
         entry = flatten_entry(sp["text"])
         if not COURSE_RE.match(entry):
             warnings.append("%s: unusual entry (no course code): %r" % (page_label, entry[:60]))
-        grid.setdefault((current_row, target), []).append(entry)
+        for ci in covered:
+            grid.setdefault((current_row, ci), []).append(entry)
 
     if ghosts:
         print("  %s: dropped %d hidden page-break duplicate entr%s"
