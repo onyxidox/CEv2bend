@@ -1,8 +1,10 @@
 const axios = require('axios');
 
+// 🔧 All Computer Engineering sections, 1st through 3rd semester
 const TARGET_SECTIONS = [
-    "BSCE-2A", 
-    "BSCE-2B"
+    "BCE-1A", "BCE-1B",
+    "BCE-2A", "BCE-2B",
+    "BCE-3A", "BCE-3B"
 ];
 
 const SHEET_ID = "1MP4MPKE-oNkbmo_GWBHtXIa0mLDW_dxlmhM4oXi55eQ";
@@ -15,9 +17,16 @@ const SHEETS = [
   { day: "FRIDAY", gid: "188030115" },
 ];
 
+// Normalizes a section string for comparison: trims spaces, uppercases
+function normalizeSection(s) {
+    return (s || "").trim().toUpperCase();
+}
+
 async function fetchAllDays() {
     const allSchedule = [];
-    console.log("--- STARTING FETCH (TARGET SECTIONS ONLY) ---");
+    console.log("--- STARTING FETCH (COMMA-FORMAT PARSER) ---");
+
+    const targetSet = new Set(TARGET_SECTIONS.map(normalizeSection));
 
     for (const sheet of SHEETS) {
         const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&gid=${sheet.gid}`;
@@ -30,125 +39,86 @@ async function fetchAllDays() {
             const parsed = JSON.parse(data);
             const rows = parsed.table.rows;
 
-            let timeRowIndex = -1;
-            rows.forEach((row, index) => {
-                if (index > 8) return; 
-                const rowStr = JSON.stringify(row);
-                if (/[0-9]{1,2}:[0-9]{2}/.test(rowStr)) { 
-                    timeRowIndex = index;
+            console.log(`📄 [${day}] Fetched ${rows.length} rows (gid=${sheet.gid})`);
+
+            // Row 0 is the header row: col 0 = "Venue", cols 1..N = time slots like "8:00-8:50"
+            const headerRow = rows[0];
+            const timeSlots = headerRow.c.map(c => {
+                let v = c?.v || "";
+                if (typeof v === "string") v = v.replace(/[–—−]/g, "-").trim();
+                return v;
+            });
+
+            let lastVenue = "Unknown Venue";
+            let dayMatches = 0;
+
+            // Data starts at row index 1 (sheet row 2)
+            for (let rowIndex = 1; rowIndex < rows.length; rowIndex++) {
+                const row = rows[rowIndex];
+                if (!row || !row.c) continue;
+
+                // Column A (venue) may be blank on merged/continuation rows — carry forward
+                const venueCell = row.c[0];
+                if (venueCell && venueCell.v && String(venueCell.v).trim() !== "") {
+                    lastVenue = String(venueCell.v).trim();
                 }
-            });
+                const venue = lastVenue;
 
-            if (timeRowIndex === -1) timeRowIndex = 2; 
-
-            const rawTimes = rows[timeRowIndex].c.map(c => {
-                let val = c?.v || "";
-                if (typeof val === "string") {
-                    val = val.replace(/[–—−]/g, "-");
-                }
-                return val;
-            });
-            
-            const slotTimes = rawTimes.map(t => {
-                if (typeof t === "string" && /[0-9]{1,2}:[0-9]{2}/.test(t)) return t;
-                return null; 
-            });
-            rows.forEach((row, rowIndex) => {
-                if (rowIndex <= timeRowIndex + 1) return; 
-
-                const venue = row.c[0]?.v || "Unknown Venue";
-
-                for (let colIndex = 0; colIndex < row.c.length; colIndex++) {
+                for (let colIndex = 1; colIndex < row.c.length; colIndex++) {
                     const cell = row.c[colIndex];
-                    if (!cell || !cell.v || colIndex === 0) continue;
+                    if (!cell || !cell.v) continue;
 
-                    const cellText = cell.v;
+                    const cellText = String(cell.v).trim();
+                    if (!cellText) continue;
 
-                    
-                    const match = cellText.match(/BSCE-(\d[A-Z])/i);
-                    if (!match) continue;
+                    // Expected format: "CODE,SECTION, Title, Instructor, NN st"
+                    const parts = cellText.split(",").map(p => p.trim()).filter(p => p !== "");
+                    if (parts.length < 2) continue; // malformed cell, skip
 
-                    const classCode = match[1].toUpperCase();
-                    const normalizedSection = `BSCE-${classCode}`;
+                    const courseCode = parts[0];
+                    const sectionRaw = parts[1];
+                    const normalizedSection = normalizeSection(sectionRaw);
 
-                    if (!TARGET_SECTIONS.includes(normalizedSection)) {
-                        continue; 
+                    if (!targetSet.has(normalizedSection)) continue; // not one of our target sections
+
+                    // Everything between section and the last two fields (instructor, seats) is the title
+                    // Seats field usually ends in "st" (e.g. "44 st") — strip it if present
+                    let instructor = "TBA";
+                    let title = courseCode;
+
+                    if (parts.length >= 5) {
+                        instructor = parts[parts.length - 2];
+                        title = parts.slice(2, parts.length - 2).join(", ");
+                    } else if (parts.length === 4) {
+                        instructor = parts[3];
+                        title = parts[2];
+                    } else if (parts.length === 3) {
+                        title = parts[2];
                     }
 
-
-                    const isLab = cellText.toLowerCase().includes("lab");
-                    
-                    let spans = 1;
-                    if (isLab) {
-                        let nextIdx = colIndex + 1;
-                        while (nextIdx < row.c.length) {
-                            if (spans >= 3) break; 
-                            const nextCell = row.c[nextIdx];
-                            const isEmpty = !nextCell || !nextCell.v || (typeof nextCell.v === 'string' && nextCell.v.trim() === "");
-                            if (isEmpty) { spans++; nextIdx++; } else break; 
-                        }
-                    }
-
-                    const startSlotStr = slotTimes[colIndex];
-                    const endSlotIdx = colIndex + spans - 1;
-                    const safeEndIdx = Math.min(endSlotIdx, slotTimes.length - 1);
-                    const endSlotStr = slotTimes[safeEndIdx];
-
-                    let finalTime = startSlotStr || "Unknown";
-                    if (startSlotStr && endSlotStr && startSlotStr.includes("-") && endSlotStr.includes("-")) {
-                        const startTime = startSlotStr.split("-")[0].trim();
-                        const endTime = endSlotStr.split("-")[1].trim();
-                        if (startTime && endTime) finalTime = `${startTime} - ${endTime}`;
-                    } else if (startSlotStr && !endSlotStr) {
-                         finalTime = startSlotStr;
-                    }
-
-            
-                    let cleanText = cellText.replace(/^\b[A-Z]{2}\d{4}\s*[-–]?\s*/, "").trim();
-
-                    let instructor = "";
-
-                    if (cleanText.includes("\n")) {
-                        const parts = cleanText.split("\n");
-                        instructor = parts[parts.length - 1];
-                    } 
-                    else if (cleanText.includes("+")) {
-                        instructor = cleanText.split("+").pop();
-                    }
-                    else {
-                        const splitBySection = cleanText.split(new RegExp(normalizedSection, 'i'));
-                        if (splitBySection.length > 1) {
-                            instructor = splitBySection[1];
-                        } else {
-                            instructor = cleanText; // Failed to separate
-                        }
-                    }
-
-                    instructor = instructor
-                        .replace(/\b(Lab|Lecture)\b/gi, "") 
-                        .replace(/^[\s,.\-+]+/, "") 
-                        .trim();
-
-                    const flatDetails = cleanText.replace(/[\n\r]+/g, " ").replace(/\s+/g, " ").trim();
-
+                    const time = timeSlots[colIndex] || "Unknown";
 
                     allSchedule.push({
-                        section: normalizedSection,
+                        section: sectionRaw,
                         day,
                         venue,
-                        time: finalTime, 
-                        instructor: instructor, 
-                        details: flatDetails,  
+                        time,
+                        instructor,
+                        details: `${courseCode} - ${title}`,
                         updatedAt: new Date()
                     });
+                    dayMatches++;
                 }
-            });
+            }
+
+            console.log(`✅ [${day}] Matched ${dayMatches} entries for target sections`);
 
         } catch (err) {
-            console.error(`Failed to fetch ${day}`, err.message);
+            console.error(`❌ Failed to fetch ${day}:`, err.response ? err.response.status : err.message);
         }
     }
-    console.log(`--- FETCH COMPLETE. Found ${allSchedule.length} entries ---`);
+
+    console.log(`--- FETCH COMPLETE. Found ${allSchedule.length} total entries ---`);
     return allSchedule;
 }
 
